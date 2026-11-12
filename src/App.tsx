@@ -1,33 +1,264 @@
 
 import { useState, useRef, useEffect, createContext, useContext } from "react";
+import { DEFAULT_JA_CONFIG, BOARD_HEIGHTS, calcJA, jaFormulaRows } from "./liquid-acrylic.js";
+import { isFilmMaterial, materialTitle, aggregateMaterials } from "./materials.js";
 
 const T={bg0:"#0F1117",bg1:"#181C25",bg2:"#1E2332",bg3:"#252A3A",border:"#2C3348",borderLight:"#353D56",text:"#E8EAF0",textSub:"#7C85A0",textMuted:"#4A5268",accent:"#4F7EF7",accentDim:"#1E2D5A",accentHover:"#6B95FF",green:"#2ECC8F",greenDim:"#0D3526",amber:"#F5A623",amberDim:"#3A2800",red:"#E05C5C",redDim:"#3A1515",purple:"#9B7FF5",purpleDim:"#261E48"};
 const css=`*{box-sizing:border-box;margin:0;padding:0}body{background:${T.bg0};color:${T.text};font-family:-apple-system,BlinkMacSystemFont,'Inter',sans-serif}input,select{outline:none;font-family:inherit}input:focus,select:focus{border-color:${T.accent}!important;box-shadow:0 0 0 3px ${T.accentDim}}button{font-family:inherit;cursor:pointer}::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-track{background:${T.bg1}}::-webkit-scrollbar-thumb{background:${T.border};border-radius:4px}.hov:hover{background:${T.bg3}!important}.pri:hover{background:${T.accentHover}!important}.sec:hover{border-color:${T.borderLight}!important;background:${T.bg3}!important}.del:hover{background:${T.redDim}!important;color:${T.red}!important}.tab-b:hover{color:${T.text}!important}`;
 
 const DEFAULT_FRESA=[
-  {id:"f1",group:"ПЭТ",material:"ПЭТ 1–2 мм",rate:17.28},
-  {id:"f2",group:"ПЭТ",material:"ПЭТ 3–4 мм",rate:22.68},
-  {id:"f3",group:"Полистирол",material:"Полистирол 1–3 мм",rate:17.28},
-  {id:"f4",group:"Полистирол",material:"Полистирол 3–4 мм",rate:22.68},
-  {id:"f5",group:"ПВХ",material:"ПВХ вспен. 2–3 мм",rate:13.77},
-  {id:"f6",group:"ПВХ",material:"ПВХ вспен. 4–6 мм",rate:17.28},
-  {id:"f7",group:"ПВХ",material:"ПВХ вспен. 8–10 мм",rate:22.68},
-  {id:"f8",group:"ПВХ",material:"ПВХ вспен. 19–24 мм",rate:26.73},
-  {id:"f9",group:"Композит",material:"Композит/Дибонд 3–4 мм",rate:26.73},
-  {id:"f10",group:"Акрил",material:"Акрил 1–2 мм",rate:17.28},
-  {id:"f11",group:"Акрил",material:"Акрил 3–4 мм",rate:19.58},
-  {id:"f12",group:"Акрил",material:"Акрил 5–6 мм",rate:24.30},
-  {id:"f13",group:"Акрил",material:"Акрил 8–12 мм",rate:30.24},
-  {id:"f14",group:"Акрил",material:"Акрил 15 мм",rate:38.07},
-  {id:"f15",group:"Акрил",material:"Акрил 20–25 мм",rate:48.60},
-  {id:"f16",group:"Поликарбонат",material:"Поликарбонат 3–4 мм",rate:19.58},
-  {id:"f17",group:"Поликарбонат",material:"Поликарбонат 5–6 мм",rate:24.30},
-  {id:"f18",group:"Поликарбонат",material:"Поликарбонат 8–10 мм",rate:30.24},
-  {id:"f19",group:"Фанера",material:"Фанера 3–6 мм",rate:18.09},
-  {id:"f20",group:"Фанера",material:"Фанера 12–18 мм",rate:32.40},
-  {id:"f21",group:"МДФ",material:"МДФ 3–6 мм",rate:17.28},
-  {id:"f22",group:"МДФ",material:"МДФ 12–19 мм",rate:24.30},
-  {id:"f23",group:"МДФ",material:"МДФ 22–30 мм",rate:35.10},
+  {
+    "id": "cut1",
+    "group": "Лазер · Контурная гравировка",
+    "material": "Лазер Пластик для гравировки контурная",
+    "rate": 0.22,
+    "unit": "см"
+  },
+  {
+    "id": "cut2",
+    "group": "Фреза ЧПУ · Контурная гравировка",
+    "material": "Фреза ПВХ контурная",
+    "rate": 0.29,
+    "unit": "см"
+  },
+  {
+    "id": "cut3",
+    "group": "Фреза ЧПУ · Контурная гравировка",
+    "material": "Фреза Пластик для гравировки контурная",
+    "rate": 0.29,
+    "unit": "см"
+  },
+  {
+    "id": "cut4",
+    "group": "Лазер · Контурная гравировка",
+    "material": "Лазер Фанера контурная",
+    "rate": 0.36,
+    "unit": "см"
+  },
+  {
+    "id": "cut5",
+    "group": "Фреза ЧПУ · Контурная гравировка",
+    "material": "Фреза Фанера контурная",
+    "rate": 0.5,
+    "unit": "см"
+  },
+  {
+    "id": "cut6",
+    "group": "Фреза ЧПУ · Контурная гравировка",
+    "material": "Фреза Оргстекло контурная",
+    "rate": 0.7,
+    "unit": "см"
+  },
+  {
+    "id": "cut7",
+    "group": "Лазер · Гравировка с заполнением",
+    "material": "Лазер Пластик для гравировки с заполнением",
+    "rate": 2.15,
+    "unit": "см²"
+  },
+  {
+    "id": "cut8",
+    "group": "Фреза ЧПУ · Гравировка с заполнением",
+    "material": "Фреза Пластик для гравировки с заполнением",
+    "rate": 2.5,
+    "unit": "см²"
+  },
+  {
+    "id": "cut9",
+    "group": "Фреза ЧПУ · Гравировка с заполнением",
+    "material": "Фреза ПВХ с заполнением",
+    "rate": 2.85,
+    "unit": "см²"
+  },
+  {
+    "id": "cut10",
+    "group": "Лазер · Гравировка с заполнением",
+    "material": "Лазер Фанера с заполнением",
+    "rate": 2.9,
+    "unit": "см²"
+  },
+  {
+    "id": "cut11",
+    "group": "Фреза ЧПУ · Гравировка с заполнением",
+    "material": "Фреза Оргстекло с заполнением",
+    "rate": 3.85,
+    "unit": "см²"
+  },
+  {
+    "id": "cut12",
+    "group": "Фреза ЧПУ · Гравировка с заполнением",
+    "material": "Фреза Фанера с заполнением",
+    "rate": 3.95,
+    "unit": "см²"
+  },
+  {
+    "id": "cut13",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Полистирол 1 - 3 мм",
+    "rate": 16.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut14",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Пластик для гравировки",
+    "rate": 16.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut15",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Оргстекло 1 - 5 мм",
+    "rate": 20.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut16",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - ПВХ 1 - 6 мм",
+    "rate": 22.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut17",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - ПЭТ 1 - 4 мм",
+    "rate": 23.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut18",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - ПВХ 8 - 10 мм",
+    "rate": 25.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut19",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Оргстекло 6 - 10 мм",
+    "rate": 25.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut20",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Полистирол 4 - 6 мм",
+    "rate": 25.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut21",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Фанера 2 - 6 мм",
+    "rate": 25.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut22",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Полистирол 1 - 3 мм",
+    "rate": 27.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut23",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Оргстекло 1 - 5 мм",
+    "rate": 28.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut24",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Фанера 2 - 6 мм",
+    "rate": 29.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut25",
+    "group": "Лазер · Резка",
+    "material": "Лазер - ПЭТ 1 - 4 мм",
+    "rate": 29.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut26",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Полистирол 4 - 6 мм",
+    "rate": 30.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut27",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Пластик для гравировки",
+    "rate": 30.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut28",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Оргстекло 11 - 16 мм",
+    "rate": 32.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut29",
+    "group": "Лазер · Резка",
+    "material": "Лазер - Фанера 8 - 16 мм",
+    "rate": 32.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut30",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - АКП 3 мм",
+    "rate": 42.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut31",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Фанера 8 - 16 мм",
+    "rate": 43.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut32",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - МДФ 2 - 20 мм",
+    "rate": 43.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut33",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Оргстекло 6 - 10 мм",
+    "rate": 46.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut34",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Фанера 18 - 30 мм",
+    "rate": 57.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut35",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - Оргстекло 11 - 16 мм",
+    "rate": 60.0,
+    "unit": "м"
+  },
+  {
+    "id": "cut36",
+    "group": "Фреза ЧПУ · Резка",
+    "material": "Фреза - МДФ 22 - 30 мм",
+    "rate": 60.0,
+    "unit": "м"
+  }
 ];
 
 const DEFAULT_PLOTTER_OPS=[
@@ -63,7 +294,7 @@ const fmtDur=min=>{
 
 // ── Формула для длины фрезеровки: сумма коэффициент × параметр позиции ──────
 const calcFormula=(pos,formula)=>Object.entries(formula||{}).reduce((sum,[key,value])=>sum+(Number(value)||0)*bindVal(pos,key),0);
-const fresaMeters=(pos,f)=>f.formula?calcFormula(pos,f.formula):(Number(f.meters)||0);
+const fresaMeters=(pos,f,price)=>f.formula?calcFormula(pos,f.formula)*(price?.unit==="см"?100:price?.unit==="см²"?10000:1):(Number(f.meters)||0);
 const formulaText=(formula,binds=BINDS)=>Object.entries(formula||{}).filter(([,value])=>Number(value)).map(([key,value])=>`${value} × ${bindLabel(key,binds).toLowerCase()}`).join(" + ")||"0";
 
 const defaultMaterials=[
@@ -90,6 +321,10 @@ const defaultMaterials=[
   {id:70,category:"Профильная труба",name:"Труба профильная стальная 25×25×1 мм",unit:"м",price:0,supplier:""},
   {id:71,category:"Профильная труба",name:"Труба профильная алюминиевая 25×25×1 мм",unit:"м",price:0,supplier:""},
   {id:72,category:"Прочее",name:"Алюминиевый борт для объёмных букв",unit:"м",price:0,supplier:""},
+  {id:80,category:"Плёнка",name:"Oracal 641",unit:"м²",price:0,supplier:"",color:""},
+  {id:81,category:"Плёнка",name:"Oracal 8500",unit:"м²",price:0,supplier:"",color:""},
+  {id:82,category:"Плёнка",name:"Плёнка для печати Китай",unit:"м²",price:0,supplier:"",color:""},
+  {id:83,category:"Плёнка",name:"Плёнка для печати Orajet",unit:"м²",price:0,supplier:"",color:""},
 ];
 
 // Норма времени хранится в минутах на единицу
@@ -147,7 +382,7 @@ const defaultSignTypes=[
     ],
     norms:[{normId:20,qty:1},{normId:21,qty:1},{normId:10,qty:1}],
     plotterOps:[],
-    fresas:[{priceId:"f11",meters:"",formula:{neonPerimeter:2,perimeter:1}}],
+    fresas:[{priceId:"cut23",meters:"",formula:{neonPerimeter:2,perimeter:1}}],
     useJA:false,jaDefaults:{board_height:60}},
   {id:8,name:"Рама",color:"purple",description:"Рама из стальной или алюминиевой трубы 25×25×1 мм. Укажите расход трубы с учётом перемычек; работы и крепёж добавляются отдельно",
     materials:[{matId:70,qty:0,note:"Рама — расход трубы, м",bind:"",frame:true}],
@@ -155,7 +390,7 @@ const defaultSignTypes=[
   {"id":9,"name":"Табличка","color":"green","description":"Табличка из ПВХ 5 мм с плёночной аппликацией и дистанционным крепежом","materials":[{"matId":60,"qty":1,"note":"лицевая часть","bind":"area"},{"matId":7,"qty":1,"note":"плёнка","bind":"area"},{"matId":8,"qty":4,"note":"крепёж","bind":""}],"norms":[{"normId":7,"qty":1}],"plotterOps":[],"fresas":[],"useJA":false,"jaDefaults":{"board_height":60}},
   {"id":10,"name":"Стенд","color":"green","description":"Основа из ПВХ 8 мм с аппликацией. Карманы, крепёж и раму добавьте по конструкции","materials":[{"matId":61,"qty":1,"note":"лицевая часть","bind":"area"},{"matId":7,"qty":1,"note":"плёнка","bind":"area"}],"norms":[{"normId":7,"qty":1}],"plotterOps":[],"fresas":[],"useJA":false,"jaDefaults":{"board_height":60}},
   {"id":11,"name":"Композитный короб","color":"purple","description":"Гнутый короб из АКП с плёночной аппликацией. Расход композита включает развёртку бортов и задаётся вручную","materials":[{"matId":20,"qty":0,"note":"композит — развёртка короба, м²","bind":""},{"matId":7,"qty":1,"note":"плёнка","bind":"area"}],"norms":[{"normId":8,"qty":1},{"normId":7,"qty":1}],"plotterOps":[],"fresas":[],"useJA":false,"jaDefaults":{"board_height":60}},
-  {"id":12,"name":"Композитный короб (инкрустация)","color":"amber","description":"Короб из АКП с инкрустацией молочным акрилом и LED-подсветкой. Укажите расход развёртки и площадь акрила вручную","materials":[{"matId":20,"qty":0,"note":"композит — развёртка короба, м²","bind":""},{"matId":12,"qty":0,"note":"молочный акрил 5 мм — площадь инкрустации, м²","bind":""},{"matId":30,"qty":1,"note":"задняя стенка","bind":"area"},{"matId":5,"qty":50,"note":"LED-модули — количество подобрать по засветке","bind":""},{"matId":10,"qty":1,"note":"блок питания — мощность подобрать по LED-нагрузке","bind":""}],"norms":[{"normId":8,"qty":1}],"plotterOps":[],"fresas":[{"priceId":"f9","meters":"","formula":null},{"priceId":"f12","meters":"","formula":null}],"useJA":false,"jaDefaults":{"board_height":60}},
+  {"id":12,"name":"Композитный короб (инкрустация)","color":"amber","description":"Короб из АКП с инкрустацией молочным акрилом и LED-подсветкой. Укажите расход развёртки и площадь акрила вручную","materials":[{"matId":20,"qty":0,"note":"композит — развёртка короба, м²","bind":""},{"matId":12,"qty":0,"note":"молочный акрил 5 мм — площадь инкрустации, м²","bind":""},{"matId":30,"qty":1,"note":"задняя стенка","bind":"area"},{"matId":5,"qty":50,"note":"LED-модули — количество подобрать по засветке","bind":""},{"matId":10,"qty":1,"note":"блок питания — мощность подобрать по LED-нагрузке","bind":""}],"norms":[{"normId":8,"qty":1}],"plotterOps":[],"fresas":[{"priceId":"cut30","meters":"","formula":null},{"priceId":"cut23","meters":"","formula":null}],"useJA":false,"jaDefaults":{"board_height":60}},
   {"id":13,"name":"Пленка","color":"green","description":"Плёночная аппликация: материал по площади. Площадь плоттерных операций задаётся отдельно","materials":[{"matId":7,"qty":1,"note":"плёнка","bind":"area"}],"norms":[{"normId":7,"qty":1}],"plotterOps":[{"opId":"pl1","qty":0},{"opId":"pl2","qty":0},{"opId":"pl3","qty":0}],"fresas":[],"useJA":false,"jaDefaults":{"board_height":60}},
   {"id":14,"name":"Объемные буквы (ал.борт)","color":"accent","description":"Молочное акриловое лицо, алюминиевый борт и задник из ПВХ. Цену и высоту борта уточните в материалах","materials":[{"matId":3,"qty":1,"note":"лицевая часть","bind":"area"},{"matId":72,"qty":1,"note":"алюминиевый борт — по периметру","bind":"perimeter"},{"matId":30,"qty":1,"note":"задняя стенка","bind":"area"},{"matId":5,"qty":50,"note":"LED-модули — количество подобрать по засветке","bind":""},{"matId":10,"qty":1,"note":"блок питания — мощность подобрать по LED-нагрузке","bind":""}],"norms":[{"normId":13,"qty":1},{"normId":11,"qty":1}],"plotterOps":[],"fresas":[],"useJA":false,"jaDefaults":{"board_height":60}},
   {"id":15,"name":"Объемные буквы (свет.борт)","color":"amber","description":"Светящиеся лицо и борт из молочного акрила, задник из ПВХ. Площадь полос борта задаётся вручную","materials":[{"matId":3,"qty":1,"note":"лицевая часть","bind":"area"},{"matId":3,"qty":0,"note":"световой борт — площадь полос акрила, м²","bind":""},{"matId":30,"qty":1,"note":"задняя стенка","bind":"area"},{"matId":5,"qty":50,"note":"LED-модули — количество подобрать по засветке","bind":""},{"matId":10,"qty":1,"note":"блок питания — мощность подобрать по LED-нагрузке","bind":""}],"norms":[{"normId":15,"qty":1},{"normId":11,"qty":1}],"plotterOps":[],"fresas":[],"useJA":false,"jaDefaults":{"board_height":60}},
@@ -189,8 +424,8 @@ const CC={"Листовой":"green","Профильная труба":"purple",
 const uid=()=>String(Date.now()+Math.random());
 const fmt=n=>Math.round(n||0).toLocaleString("ru-RU");
 const fmt2=n=>(Math.round((n||0)*100)/100).toLocaleString("ru-RU",{minimumFractionDigits:2,maximumFractionDigits:2});
-const MAT_EX=[["Категория","Название","Единица","Цена","Поставщик"],["Листовой","Акрил молочный 3мм","м²","2400",""]].map(r=>r.join(";")).join("\n");
-const FR_EX=[["Группа","Материал","Тариф руб/пог.м"],["Акрил","Акрил 3–4 мм","19.58"]].map(r=>r.join(";")).join("\n");
+const MAT_EX=[["Категория","Название","Единица","Цена","Поставщик","Цвет"],["Листовой","Акрил молочный 3мм","м²","2400","",""]].map(r=>r.join(";")).join("\n");
+const FR_EX=[["Группа","Материал","Тариф руб/ед.","Единица"],["Фреза ЧПУ · Резка","Оргстекло 1–5 мм","28","м"]].map(r=>r.join(";")).join("\n");
 const dlCSV=(c,f)=>{const b=new Blob(["\uFEFF"+c],{type:"text/csv;charset=utf-8;"});const a=document.createElement("a");a.href=URL.createObjectURL(b);a.download=f;a.click();};
 const parseCSV=t=>t.trim().split(/\r?\n/).filter(Boolean).slice(1).map(l=>l.split(/[;,\t]/));
 
@@ -230,7 +465,7 @@ const QtyInp=({pos,row,onChange})=>{
 // Ввод коэффициентов формулы: длина = Σ коэффициент × параметр позиции
 const FormulaEdit=({formula,onChange})=>{const binds=useContext(BindContext);return (
   <div style={{padding:"8px 10px",background:T.bg0,borderRadius:8,border:`1px solid ${T.accent}`}}>
-    <div style={{fontSize:10,color:T.textMuted,marginBottom:6}}>Длина реза = сумма (коэффициент × параметр позиции)</div>
+    <div style={{fontSize:10,color:T.textMuted,marginBottom:6}}>Объём = сумма (коэффициент × параметр). Длина в м, площадь в м²; перевод в см/см² автоматический.</div>
     <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(90px,1fr))",gap:6}}>
       {binds.filter(b=>b.key).map(b=>(
         <div key={b.key} style={{display:"flex",flexDirection:"column",gap:2}}>
@@ -278,35 +513,6 @@ const CatChips=({cats,value,onChange,counts})=>(
 );
 
 // ── Жидкий акрил: конфиг и расчёт ────────────────────────────────────────────
-const DEFAULT_JA_CONFIG={
-  price_board:120,
-  price_machine:150,
-  price_backing:1665.43,
-  price_operator:400,
-  operator_norm:0.5555,
-  density_acrylic:1500,
-  acrylic_price_coeff:13.333333333333334,
-  acrylic_thickness:4,
-  backing_calc_mode:"area",
-  operator_norm_mode:"per_letter",
-};
-const BOARD_HEIGHTS=[40,60,80,100];
-
-function calcJA(params,cfg){
-  const {area,board_height,letters_count,perimeter}=params;
-  const price_acrylic=2*board_height*cfg.acrylic_price_coeff;
-  const acrylic_consumption=area*(cfg.acrylic_thickness/1000)*cfg.density_acrylic;
-  const cost_acrylic=acrylic_consumption*price_acrylic;
-  const cost_board=perimeter*cfg.price_board;
-  const cost_machine=perimeter*cfg.price_machine;
-  const subtotal_acrilight=cost_acrylic+cost_board+cost_machine;
-  const cost_backing=cfg.backing_calc_mode==="area"?area*cfg.price_backing:perimeter*cfg.price_backing;
-  const operator_time=cfg.operator_norm_mode==="per_letter"?letters_count*cfg.operator_norm:perimeter*cfg.operator_norm;
-  const cost_operator=operator_time*cfg.price_operator;
-  const total=subtotal_acrilight+cost_backing+cost_operator;
-  return {price_acrylic,acrylic_consumption,cost_acrylic,cost_board,cost_machine,subtotal_acrilight,cost_backing,operator_time,cost_operator,total};
-}
-
 // ── Позиции заказа ───────────────────────────────────────────────────────────
 const isAreaKey=note=>["лицевая","задняя","основа"].some(k=>(note||"").toLowerCase().includes(k));
 
@@ -318,7 +524,7 @@ const buildPos=(st,norms)=>({
   signTypeName:st?.name||"Новая позиция",
   signTypeColor:st?.color||"accent",
   qty:1,area:"",perimeter:"",diodes:"",letters:"",neonPerimeter:"",elements:"",
-  mats:(st?.materials||[]).map(r=>({id:uid(),matId:r.matId,qty:r.qty,frame:!!r.frame,note:r.note||"",bind:r.bind??(isAreaKey(r.note)?"area":"")})),
+  mats:(st?.materials||[]).map(r=>({id:uid(),matId:r.matId,qty:r.qty,frame:!!r.frame,color:r.color,note:r.note||"",bind:r.bind??(isAreaKey(r.note)?"area":"")})),
   ops:(st?.norms||[]).map(r=>{
     const nd=(norms||[]).find(n=>n.id===Number(r.normId));
     return {id:uid(),normId:r.normId,qty:r.qty,bind:r.bind??(nd?.bind||"")};
@@ -336,7 +542,7 @@ const calcPos=(pos,materials,norms,hourRate,fresaPL,plotterOpsList,jaCfg)=>{
   const laborMin=pos.ops.reduce((s,r)=>{const n=norms.find(n=>n.id===Number(r.normId));return s+(n?(Number(n.minutes)||0)*effQty(pos,r):0);},0);
   const laborH=laborMin/60;
   const laborCost=laborH*Number(hourRate);
-  const fresaCost=(pos.fresas||[]).reduce((s,f)=>{const p=(fresaPL||[]).find(x=>x.id===f.priceId);return s+(p?p.rate*fresaMeters(pos,f):0);},0);
+  const fresaCost=(pos.fresas||[]).reduce((s,f)=>{const p=(fresaPL||[]).find(x=>x.id===f.priceId);return s+(p?p.rate*fresaMeters(pos,f,p):0);},0);
   const plotterCost=(pos.plotterOps||[]).reduce((s,r)=>{const op=(plotterOpsList||[]).find(x=>x.id===r.opId);return s+(op?op.rate*(Number(r.qty)||0):0);},0);
   let jaRes=null;
   let jaCost=0;
@@ -345,7 +551,7 @@ const calcPos=(pos,materials,norms,hourRate,fresaPL,plotterOpsList,jaCfg)=>{
     const p=Number(pos.perimeter)||0;
     const l=Number(pos.letters)||0;
     const b=Number((pos.ja||{}).board_height)||60;
-    if(a>0&&p>0&&l>0){
+    if(a>0&&p>0&&(jaCfg.operator_norm_mode==="per_meter"||l>0)){
       jaRes=calcJA({area:a,board_height:b,letters_count:l,perimeter:p},jaCfg);
       jaCost=jaRes.total;
     }
@@ -392,32 +598,32 @@ function PosStanki({pos,fresaPL,plotterOpsList,updPos}){
       </div>
       <div>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
-          <span style={{fontSize:12,fontWeight:600,color:T.textSub}}>⚙ Фреза ЧПУ</span>
+          <span style={{fontSize:12,fontWeight:600,color:T.textSub}}>⚙ Фреза ЧПУ, лазер и гравировка</span>
           <Btn variant="sec" onClick={addFresa} style={{height:26,padding:"0 10px",fontSize:11}}>+ Добавить</Btn>
         </div>
-        {(pos.fresas||[]).length===0&&<div style={{fontSize:12,color:T.textMuted}}>Нет позиций фрезеровки</div>}
+        {(pos.fresas||[]).length===0&&<div style={{fontSize:12,color:T.textMuted}}>Нет операций резки и гравировки</div>}
         {(pos.fresas||[]).map(fr=>{
           const pr=fresaPL.find(x=>x.id===fr.priceId);
           const isF=!!fr.formula;
-          const mtr=fresaMeters(pos,fr);
+          const mtr=fresaMeters(pos,fr,pr);
           const fTotal=(pr?.rate||0)*mtr;
           return(
             <div key={fr.id} style={{marginBottom:8}}>
               <div style={{display:"grid",gridTemplateColumns:"1fr 100px 110px 90px 30px",gap:8,alignItems:"center"}}>
-                <select value={fr.priceId} onChange={e=>patchFresa(fr.id,{priceId:e.target.value})} style={{...SS,fontSize:12}}>
+                <select value={fr.priceId} onChange={e=>patchFresa(fr.id,{priceId:e.target.value,meters:"",formula:null})} style={{...SS,fontSize:12}}>
                   {fresaGroups.map(g=>(
                     <optgroup key={g} label={g}>
-                      {fresaPL.filter(x=>x.group===g).map(x=>(<option key={x.id} value={x.id}>{x.material} — {Number(x.rate).toFixed(2)} ₽/м</option>))}
+                      {fresaPL.filter(x=>x.group===g).map(x=>(<option key={x.id} value={x.id}>{x.material} — {Number(x.rate).toFixed(2)} ₽/{x.unit||"м"}</option>))}
                     </optgroup>
                   ))}
                 </select>
-                <input type="number" min="0" step="0.1" value={isF?Math.round(mtr*100)/100:fr.meters} disabled={isF} onChange={e=>patchFresa(fr.id,{meters:e.target.value})} placeholder="пог.м" style={{...IS,fontSize:12,opacity:isF?.75:1,background:isF?T.bg0:T.bg2,borderColor:isF?T.accent:T.border}}/>
+                <input type="number" min="0" step="0.1" value={isF?Math.round(mtr*100)/100:fr.meters} disabled={isF} onChange={e=>patchFresa(fr.id,{meters:e.target.value})} aria-label={`Объём, ${pr?.unit||"м"}`} title={`Количество в ${pr?.unit||"м"}`} placeholder={pr?.unit||"м"} style={{...IS,fontSize:12,opacity:isF?.75:1,background:isF?T.bg0:T.bg2,borderColor:isF?T.accent:T.border}}/>
                 <button title="Переключить ввод длины: вручную или по формуле" onClick={()=>isF?patchFresa(fr.id,{formula:null,meters:String(Math.round(mtr*100)/100)}):patchFresa(fr.id,{formula:{}})} style={{height:38,borderRadius:8,border:`1px solid ${isF?T.accent:T.border}`,background:isF?T.accentDim:T.bg2,color:isF?T.accent:T.textSub,fontSize:12}}>{isF?"⊡ Формула":"Вручную"}</button>
                 <div style={{height:38,borderRadius:8,border:`1px solid ${T.border}`,background:T.bg0,display:"flex",alignItems:"center",justifyContent:"flex-end",padding:"0 10px",fontWeight:700,color:fTotal>0?T.amber:T.textMuted,fontSize:13}}>{fTotal>0?`${fmt(fTotal)} ₽`:"—"}</div>
                 <XBtn onClick={()=>delFresa(fr.id)}/>
               </div>
               {isF&&<div style={{marginTop:6}}><FormulaEdit formula={fr.formula} onChange={f=>patchFresa(fr.id,{formula:f})}/></div>}
-              {pr&&<div style={{fontSize:10,color:T.textMuted,marginTop:2,paddingLeft:2}}>{pr.group} · {Number(pr.rate).toFixed(2)} ₽/пог.м{isF?` · ${fmt2(mtr)} пог.м = ${formulaText(fr.formula,binds)}`:""}</div>}
+              {pr&&<div style={{fontSize:10,color:T.textMuted,marginTop:2,paddingLeft:2}}>{pr.group} · {Number(pr.rate).toFixed(2)} ₽/{pr.unit||"м"}{isF?` · ${fmt2(mtr)} ${pr.unit||"м"} · ${formulaText(fr.formula,binds)}`:""}</div>}
             </div>
           );
         })}
@@ -427,13 +633,13 @@ function PosStanki({pos,fresaPL,plotterOpsList,updPos}){
 }
 
 // ── Жидкий акрил внутри позиции ──────────────────────────────────────────────
-function PosJA({pos,cost,updPos}){
+function PosJA({pos,cost,updPos,cfg}){
   const ja=pos.ja||{};
   const bh=Number(ja.board_height)||60;
   const missing=[];
   if(!(Number(pos.area)>0))missing.push("площадь");
   if(!(Number(pos.perimeter)>0))missing.push("периметр");
-  if(!(Number(pos.letters)>0))missing.push("кол-во букв");
+  if(cfg.operator_norm_mode!=="per_meter"&&!(Number(pos.letters)>0))missing.push("кол-во букв");
   const res=cost.jaRes;
   const Row=({label,value,unit,bold,color})=>(
     <div style={{display:"flex",justifyContent:"space-between",padding:"5px 0",borderBottom:`1px solid ${T.border}`}}>
@@ -528,7 +734,7 @@ function OrderEditor({employees,specEquipment,order,signTypes,materials,norms,ho
   const addFrame=id=>{if(!frameMaterials.length)return;updPos(id,x=>({...x,mats:[...x.mats,{id:uid(),matId:frameMaterials[0]?.id,qty:0,note:"Рама — расход трубы, м",bind:"",frame:true}]}));};
   const addMat=id=>updPos(id,x=>({...x,mats:[...x.mats,{id:uid(),matId:materials[0]?.id,qty:1,note:"",bind:""}]}));
   const delMat=(pid,mid)=>updPos(pid,x=>({...x,mats:x.mats.filter(m=>m.id!==mid)}));
-  const updMat=(pid,mid,f,v)=>updPos(pid,x=>({...x,mats:x.mats.map(m=>m.id===mid?{...m,[f]:v}:m)}));
+  const updMat=(pid,mid,f,v)=>updPos(pid,x=>({...x,mats:x.mats.map(m=>m.id===mid?{...m,[f]:v,...(f==="matId"?{color:materials.find(x=>x.id===Number(v))?.color??""}:{})}:m)}));
 
   const addOp=id=>updPos(id,x=>({...x,ops:[...x.ops,{id:uid(),normId:norms[0]?.id,qty:1,bind:norms[0]?.bind||""}]}));
   const delOp=(pid,oid)=>updPos(pid,x=>({...x,ops:x.ops.filter(o=>o.id!==oid)}));
@@ -548,25 +754,10 @@ function OrderEditor({employees,specEquipment,order,signTypes,materials,norms,ho
   const grandTotal=(allPosCost+mountTotal)*profitabilityFactor(markup);
 
   // Сводный перечень материалов по всем позициям (с учётом количества изделий)
-  const matTotals=(()=>{
-    const map={};
-    positions.forEach((pos,pi)=>{
-      const q=Number(pos.qty||1);
-      pos.mats.forEach(r=>{
-        const m=materials.find(x=>x.id===Number(r.matId));
-        if(!m)return;
-        const qty=effQty(pos,r)*q;
-        if(qty<=0)return;
-        if(!map[m.id])map[m.id]={m,qty:0,pos:[]};
-        map[m.id].qty+=qty;
-        if(!map[m.id].pos.includes(pi+1))map[m.id].pos.push(pi+1);
-      });
-    });
-    return Object.values(map).sort((a,b)=>a.m.category.localeCompare(b.m.category,"ru")||a.m.name.localeCompare(b.m.name,"ru"));
-  })();
+  const matTotals=aggregateMaterials(positions,materials,effQty);
   const matTotalCost=matTotals.reduce((s,x)=>s+x.m.price*x.qty,0);
   const exportMatTotals=()=>{
-    const rows=[["Категория","Материал","Ед.","Кол-во","Цена, ₽","Стоимость, ₽","Позиции"],...matTotals.map(x=>[x.m.category,x.m.name,x.m.unit,Math.round(x.qty*100)/100,x.m.price,Math.round(x.m.price*x.qty*100)/100,x.pos.join(", ")])];
+    const rows=[["Категория","Материал","Ед.","Кол-во","Цена, ₽","Стоимость, ₽","Позиции"],...matTotals.map(x=>[x.m.category,materialTitle(x.m,x.color),x.m.unit,Math.round(x.qty*100)/100,x.m.price,Math.round(x.m.price*x.qty*100)/100,x.pos.join(", ")])];
     dlCSV(rows.map(r=>r.join(";")).join("\n"),`materials_${(name||"order").replace(/\s+/g,"_")}.csv`);
   };
 
@@ -653,9 +844,10 @@ function OrderEditor({employees,specEquipment,order,signTypes,materials,norms,ho
                       {pos.mats.filter(m=>!m.frame).length===0&&<div style={{fontSize:12,color:T.textMuted}}>Нет материалов</div>}
                       {pos.mats.filter(m=>!m.frame).map(m=>(
                         <div key={m.id} style={{display:"grid",gridTemplateColumns:"1fr 100px 150px 110px 30px",gap:8,marginBottom:6,alignItems:"center"}}>
-                          <select value={m.matId} onChange={e=>updMat(pos.id,m.id,"matId",e.target.value)} style={{...SS,fontSize:12}}>
-                            {materials.map(x=><option key={x.id} value={x.id}>{x.name} — {x.price.toLocaleString("ru-RU")} ₽/{x.unit}</option>)}
+                          <div style={{minWidth:0}}><select value={m.matId} onChange={e=>updMat(pos.id,m.id,"matId",e.target.value)} style={{...SS,fontSize:12}}>
+                            {materials.map(x=><option key={x.id} value={x.id}>{materialTitle(x)} — {x.price.toLocaleString("ru-RU")} ₽/{x.unit}</option>)}
                           </select>
+                          {isFilmMaterial(materials.find(x=>x.id===Number(m.matId)))&&<input aria-label="Цвет плёнки в позиции" value={m.color??materials.find(x=>x.id===Number(m.matId))?.color??""} onChange={e=>updMat(pos.id,m.id,"color",e.target.value)} placeholder="Цвет или код, например: 031, красный" style={{...IS,height:28,fontSize:11,marginTop:4}}/>}</div>
                           <QtyInp pos={pos} row={m} onChange={v=>updMat(pos.id,m.id,"qty",v)}/>
                           <BindSel value={m.bind} onChange={v=>updMat(pos.id,m.id,"bind",v)}/>
                           <input value={m.note||""} onChange={e=>updMat(pos.id,m.id,"note",e.target.value)} placeholder="примечание" style={{...IS,fontSize:12}}/>
@@ -713,7 +905,7 @@ function OrderEditor({employees,specEquipment,order,signTypes,materials,norms,ho
                       <PosStanki pos={pos} fresaPL={fresaPL} plotterOpsList={plotterOpsList} updPos={fn=>updPos(pos.id,fn)}/>
                     </div>
 
-                    <PosJA pos={pos} cost={cost} updPos={fn=>updPos(pos.id,fn)}/>
+                    <PosJA cfg={jaCfg} pos={pos} cost={cost} updPos={fn=>updPos(pos.id,fn)}/>
 
                     <PositionWork pos={pos} employees={employees} norms={norms} hourRate={hourRate} updPos={updPos}/>
 
@@ -722,7 +914,7 @@ function OrderEditor({employees,specEquipment,order,signTypes,materials,norms,ho
                       <MC label="Время сборки" value={fmtDur(cost.laborMin)} sub={Number(pos.qty)>1?`всего ${fmtDur(cost.laborMin*Number(pos.qty))}`:undefined} color={cost.laborMin>0?T.green:T.textMuted}/>
                       <MC label="ФОТ" value={`${fmt(cost.laborCost)} ₽`}/>
                       <MC label="Плоттер" value={cost.plotterCost>0?`${fmt(cost.plotterCost)} ₽`:"—"} color={cost.plotterCost>0?T.accent:T.textMuted}/>
-                      <MC label="Фреза ЧПУ" value={cost.fresaCost>0?`${fmt(cost.fresaCost)} ₽`:"—"} color={cost.fresaCost>0?T.amber:T.textMuted}/>
+                      <MC label="Резка и гравировка" value={cost.fresaCost>0?`${fmt(cost.fresaCost)} ₽`:"—"} color={cost.fresaCost>0?T.amber:T.textMuted}/>
                       {pos.useJA&&<MC label="Жидкий акрил" value={cost.jaCost>0?`${fmt(cost.jaCost)} ₽`:"—"} color={cost.jaCost>0?T.amber:T.textMuted}/>}
                       <MC label={`Итого (×${pos.qty})`} value={`${fmt(cost.total)} ₽`} color={T.green}/>
                     </div>
@@ -804,9 +996,9 @@ function OrderEditor({employees,specEquipment,order,signTypes,materials,norms,ho
               </thead>
               <tbody>
                 {matTotals.map(x=>(
-                  <tr key={x.m.id} className="hov" style={{borderBottom:`1px solid ${T.border}`}}>
+                  <tr key={x.key} className="hov" style={{borderBottom:`1px solid ${T.border}`}}>
                     <td style={tdS}><Tag col={CC[x.m.category]||"accent"}>{x.m.category}</Tag></td>
-                    <td style={tdS}>{x.m.name}</td>
+                    <td style={tdS}>{materialTitle(x.m,x.color)}</td>
                     <td style={{...tdS,textAlign:"right",fontWeight:700,color:T.green,whiteSpace:"nowrap"}}>{fmt2(x.qty)} <span style={{fontSize:11,color:T.textMuted,fontWeight:400}}>{x.m.unit}</span></td>
                     <td style={{...tdS,textAlign:"right",color:T.textSub,whiteSpace:"nowrap"}}>{x.m.price.toLocaleString("ru-RU")} ₽</td>
                     <td style={{...tdS,textAlign:"right",fontWeight:600,color:T.accent,whiteSpace:"nowrap"}}>{fmt(x.m.price*x.qty)} ₽</td>
@@ -872,51 +1064,40 @@ function LiquidAcrylicModule({cfg,setCfg}){
   const [boardH,setBoardH]=useState(60);
   const [letters,setLetters]=useState("");
   const [perimeter,setPerimeter]=useState("");
-  const [showCfg,setShowCfg]=useState(false);
-  const [result,setResult]=useState(null);
-  const [error,setError]=useState("");
+  const [showCfg,setShowCfg]=useState(true);
+  const [attempted,setAttempted]=useState(false);
+  const params={area:Number(area)||0,board_height:Number(boardH)||60,letters_count:Number(letters)||0,perimeter:Number(perimeter)||0};
+  const inputError=!(Number(area)>0)?"Введите площадь заливки (м²)":!(Number(perimeter)>0)?"Введите периметр всех элементов (м.п.)":cfg.operator_norm_mode==="per_letter"&&!(Number(letters)>0)?"Введите количество букв":"";
+  const result=inputError?null:calcJA(params,cfg);
+  const error=attempted?inputError:"";
+  const formulas=jaFormulaRows(params,cfg);
 
-  const updCfg=(k,v)=>setCfg(p=>({...p,[k]:v}));
-
-  const calculate=()=>{
-    setError("");
-    const a=Number(area),b=Number(boardH),l=Number(letters),p=Number(perimeter);
-    if(!a||a<=0)return setError("Введите площадь заливки (м²)");
-    if(!l||l<=0)return setError("Введите количество букв");
-    if(!p||p<=0)return setError("Введите периметр всех элементов (м.п.)");
-    if(!BOARD_HEIGHTS.includes(b))return setError("Высота борта: 40, 60, 80 или 100 мм");
-    setResult(calcJA({area:a,board_height:b,letters_count:l,perimeter:p},cfg));
-  };
-
-  const Row=({label,value,unit,color,bold})=>(
-    <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 0",borderBottom:`1px solid ${T.border}`}}>
-      <span style={{fontSize:13,color:bold?T.text:T.textSub}}>{label}</span>
-      <span style={{fontSize:13,fontWeight:bold?700:500,color:color||(bold?T.green:T.text)}}>{value} <span style={{fontSize:11,color:T.textMuted}}>{unit}</span></span>
-    </div>
-  );
+  const updCfg=(k,v)=>setCfg(p=>({...p,[k]:typeof v==="number"?Math.max(0,Number.isFinite(v)?v:0):v}));
+  const calculate=()=>setAttempted(true);
 
   return(
     <Card>
       <CH title="◉ Жидкий акрил" action={
-        <button className="sec" onClick={()=>setShowCfg(p=>!p)} style={{height:30,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:showCfg?T.bg3:"none",color:T.textSub,fontSize:12}}>{showCfg?"Скрыть настройки ▲":"Цены и нормы ▼"}</button>
+        <button className="sec" onClick={()=>setShowCfg(p=>!p)} style={{height:30,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:showCfg?T.bg3:"none",color:T.textSub,fontSize:12}}>{showCfg?"Скрыть настройки ▲":"Настроить коэффициенты ▼"}</button>
       }/>
       <div style={{padding:"16px 18px",display:"flex",flexDirection:"column",gap:16}}>
         <div style={{fontSize:12,color:T.textMuted,padding:"10px 14px",background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`}}>
-          Цены и нормы отсюда используются и в расчёте ЖА внутри позиций заказа. Включить ЖА в позиции можно через тип вывески «Буквы ЖА» или кнопкой «Добавить расчёт ЖА».
+          Цены и нормы отсюда используются и в расчёте ЖА внутри позиций заказа. Включить ЖА в позиции можно через тип вывески «Объемные буквы (ЖА)» или кнопкой «Добавить расчёт ЖА».
         </div>
 
         {showCfg&&(
           <div style={{background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`,padding:"14px 16px",display:"flex",flexDirection:"column",gap:12}}>
-            <div style={{fontSize:12,fontWeight:600,color:T.textSub}}>Цены и нормы (меняются редко)</div>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            <div style={{fontSize:12,fontWeight:600,color:T.textSub}}>Коэффициенты, тарифы и нормы</div>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(190px,1fr))",gap:12}}>
               <Inp label="Цена борта, ₽/м.п." value={cfg.price_board} onChange={v=>updCfg("price_board",Number(v))} type="number" min="0"/>
               <Inp label="Цена станка, ₽/м.п." value={cfg.price_machine} onChange={v=>updCfg("price_machine",Number(v))} type="number" min="0"/>
-              <Inp label="Цена задника" value={cfg.price_backing} onChange={v=>updCfg("price_backing",Number(v))} type="number" min="0"/>
+              <Inp label={`Цена задника, ₽/${cfg.backing_calc_mode==="area"?"м²":"м.п."}`} value={cfg.price_backing} onChange={v=>updCfg("price_backing",Number(v))} type="number" min="0"/>
               <Inp label="Цена оператора, ₽/ч" value={cfg.price_operator} onChange={v=>updCfg("price_operator",Number(v))} type="number" min="0"/>
-              <Inp label="Норма оператора, ч" value={cfg.operator_norm} onChange={v=>updCfg("operator_norm",Number(v))} type="number" min="0" step="0.01"/>
+              <Inp label={`Норма оператора, ${cfg.operator_norm_mode==="per_letter"?"ч/букву":"ч/м.п."}`} value={cfg.operator_norm} onChange={v=>updCfg("operator_norm",Number(v))} type="number" min="0" step="0.0001"/>
               <Inp label="Толщина акрила, мм" value={cfg.acrylic_thickness} onChange={v=>updCfg("acrylic_thickness",Number(v))} type="number" min="1"/>
               <Inp label="Плотность акрила, кг/м³" value={cfg.density_acrylic} onChange={v=>updCfg("density_acrylic",Number(v))} type="number" min="0"/>
-              <Inp label="Коэф. цены акрила" value={cfg.acrylic_price_coeff} onChange={v=>updCfg("acrylic_price_coeff",Number(v))} type="number" min="0" step="0.0001"/>
+              <Inp label="Множитель цены акрила" value={cfg.acrylic_price_multiplier??2} onChange={v=>updCfg("acrylic_price_multiplier",Number(v))} type="number" min="0" step="0.01"/>
+              <Inp label="Коэф. цены акрила, ₽/(кг·мм)" value={cfg.acrylic_price_coeff} onChange={v=>updCfg("acrylic_price_coeff",Number(v))} type="number" min="0" step="0.0001"/>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12}}>
               <F label="Расчёт задника">
@@ -948,7 +1129,7 @@ function LiquidAcrylicModule({cfg,setCfg}){
                   <button key={h} onClick={()=>setBoardH(h)} style={{flex:1,height:38,borderRadius:8,border:`1px solid ${boardH===h?T.accent:T.border}`,background:boardH===h?T.accentDim:T.bg2,color:boardH===h?T.accent:T.textSub,fontSize:13,fontWeight:boardH===h?700:400}}>{h}</button>
                 ))}
               </div>
-              <div style={{fontSize:10,color:T.textMuted,marginTop:3}}>мм · цена акрила: {fmt2(2*boardH*cfg.acrylic_price_coeff)} ₽/кг</div>
+              <div style={{fontSize:10,color:T.textMuted,marginTop:3}}>мм · цена акрила: {fmt2(calcJA(params,cfg).price_acrylic)} ₽/кг</div>
             </F>
             <Inp label="Кол-во букв" value={letters} onChange={setLetters} type="number" min="1" suffix="шт" placeholder="6"/>
             <Inp label="Периметр элементов" value={perimeter} onChange={setPerimeter} type="number" min="0" step="0.01" suffix="м.п." placeholder="8"/>
@@ -957,32 +1138,19 @@ function LiquidAcrylicModule({cfg,setCfg}){
 
         {error&&<div style={{padding:"10px 14px",borderRadius:8,background:T.redDim,border:`1px solid ${T.red}`,fontSize:13,color:T.red}}>{error}</div>}
 
-        <Btn onClick={calculate} style={{height:42,fontSize:14}}>Рассчитать →</Btn>
+        <div style={{fontSize:11,color:T.textSub}}>Результат пересчитывается автоматически. Те же коэффициенты используются в позициях заказа. Настройки действуют до перезагрузки страницы.</div>
+        <Btn onClick={calculate} style={{height:34,fontSize:12}}>Проверить параметры</Btn>
 
-        {result&&(
-          <div style={{background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`,padding:"14px 16px"}}>
-            <div style={{fontSize:13,fontWeight:600,marginBottom:12}}>Результат расчёта</div>
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:T.textMuted,textTransform:"uppercase",letterSpacing:.8,fontWeight:600,marginBottom:6}}>Акрилайт</div>
-              <Row label={`Цена акрила (борт ${boardH} мм)`} value={fmt2(result.price_acrylic)} unit="₽/кг"/>
-              <Row label="Расход акрила" value={fmt2(result.acrylic_consumption)} unit="кг"/>
-              <Row label="Стоимость акрила" value={fmt2(result.cost_acrylic)} unit="₽"/>
-              <Row label={`Борт (${perimeter} м.п. × ${cfg.price_board} ₽)`} value={fmt2(result.cost_board)} unit="₽"/>
-              <Row label={`Станок (${perimeter} м.п. × ${cfg.price_machine} ₽)`} value={fmt2(result.cost_machine)} unit="₽"/>
-              <Row label="Подытог Акрилайт" value={fmt2(result.subtotal_acrilight)} unit="₽" bold color={T.accent}/>
-            </div>
-            <div style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:T.textMuted,textTransform:"uppercase",letterSpacing:.8,fontWeight:600,marginBottom:6}}>Задник и оператор</div>
-              <Row label="Стоимость задника" value={fmt2(result.cost_backing)} unit="₽"/>
-              <Row label="Время оператора" value={fmtDur(result.operator_time*60)} unit=""/>
-              <Row label={`Стоимость оператора (× ${cfg.price_operator} ₽/ч)`} value={fmt2(result.cost_operator)} unit="₽"/>
-            </div>
-            <div style={{borderTop:`1px solid ${T.border}`,paddingTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-              <span style={{fontSize:15,fontWeight:700}}>ИТОГО</span>
-              <span style={{fontSize:22,fontWeight:700,color:T.green}}>{fmt2(result.total)} ₽</span>
-            </div>
-          </div>
-        )}
+        <div style={{background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`,padding:"12px 14px"}}>
+          <div style={{fontSize:13,fontWeight:600,marginBottom:8}}>Формулы и подстановка значений</div>
+          <div style={{fontSize:11,color:T.textSub,lineHeight:1.6,marginBottom:10}}>S — площадь заливки (м²); P — общий периметр (м); N — количество букв; H — высота борта (мм). 1000 переводит толщину из мм в м. Итог — себестоимость ЖА на одно изделие, до рентабельности.</div>
+          {formulas.map((row,i)=><div key={row.label} style={{padding:"8px 0",borderTop:`1px solid ${T.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+            <div style={{minWidth:0}}><div style={{fontSize:12,fontWeight:600,color:i===9?T.green:T.text}}>{row.label}</div><div style={{fontSize:11,color:T.textSub,lineHeight:1.5,overflowWrap:"anywhere"}}>{row.formula}</div><div style={{fontSize:12,color:T.text,lineHeight:1.5,overflowWrap:"anywhere"}}>{result?row.numbers:""}</div></div>
+            <div style={{fontSize:i===9?19:13,fontWeight:700,color:i===9?T.green:T.accent,whiteSpace:"nowrap"}}>{result?`${fmt2(row.value)} ${row.unit}`:"—"}</div>
+          </div>)}
+          {!result&&<div style={{fontSize:12,color:T.amber,marginTop:10}}>Заполните параметры быстрого расчёта, чтобы увидеть подставленные числа и результат каждой формулы.</div>}
+          <div style={{fontSize:10,color:T.textMuted,marginTop:8}}>Показанные значения округлены; расчёт использует полную точность.</div>
+        </div>
       </div>
     </Card>
   );
@@ -1015,7 +1183,9 @@ function SignTypeEditor({st,materials,norms,fresaPL,plotterOpsList,onSave,onCanc
           <div style={{fontSize:12,fontWeight:600,color:T.textSub,marginBottom:8}}>Материалы</div>
           {stMats.map((r,i)=>(
             <div key={i} style={{display:"grid",gridTemplateColumns:"1fr 70px 150px 110px 30px",gap:8,marginBottom:6,alignItems:"center"}}>
-              <select value={r.matId} onChange={e=>setStMats(p=>p.map((x,idx)=>idx===i?{...x,matId:Number(e.target.value)}:x))} style={{...SS,fontSize:12}}>{materials.map(m=><option key={m.id} value={m.id}>{m.name}</option>)}</select>
+              <div style={{minWidth:0}}><select value={r.matId} onChange={e=>setStMats(p=>p.map((x,idx)=>idx===i?{...x,matId:Number(e.target.value),color:materials.find(m=>m.id===Number(e.target.value))?.color??""}:x))} style={{...SS,fontSize:12}}>{materials.map(m=><option key={m.id} value={m.id}>{materialTitle(m)}</option>)}</select>
+                {isFilmMaterial(materials.find(m=>m.id===Number(r.matId)))&&<input aria-label="Цвет плёнки в шаблоне" value={r.color??materials.find(m=>m.id===Number(r.matId))?.color??""} onChange={e=>setStMats(p=>p.map((x,idx)=>idx===i?{...x,color:e.target.value}:x))} placeholder="Цвет или код плёнки" style={{...IS,height:28,fontSize:11,marginTop:4}}/>}
+              </div>
               <input type="number" value={r.qty} onChange={e=>setStMats(p=>p.map((x,idx)=>idx===i?{...x,qty:e.target.value}:x))} style={{...IS,fontSize:12}}/>
               <BindSel value={r.bind} onChange={v=>setStMats(p=>p.map((x,idx)=>idx===i?{...x,bind:v}:x))}/>
               <input value={r.note||""} onChange={e=>setStMats(p=>p.map((x,idx)=>idx===i?{...x,note:e.target.value}:x))} placeholder="примечание" style={{...IS,fontSize:12}}/>
@@ -1053,25 +1223,25 @@ function SignTypeEditor({st,materials,norms,fresaPL,plotterOpsList,onSave,onCanc
           ))}
           <Btn variant="sec" onClick={()=>setStPlotter(p=>[...p,{opId:plotterOpsList[0]?.id||"",qty:1}])} style={{height:26,padding:"0 10px",fontSize:11,marginBottom:12}}>+ Операция плоттера</Btn>
 
-          <div style={{fontSize:11,color:T.textMuted,marginBottom:6,textTransform:"uppercase",letterSpacing:.7,fontWeight:600}}>⚙ Фреза ЧПУ</div>
+          <div style={{fontSize:11,color:T.textMuted,marginBottom:6,textTransform:"uppercase",letterSpacing:.7,fontWeight:600}}>⚙ Фреза ЧПУ, лазер и гравировка</div>
           {stFresas.map((r,i)=>{
             const isF=!!r.formula;
             return(
               <div key={i} style={{marginBottom:8}}>
                 <div style={{display:"grid",gridTemplateColumns:"1fr 90px 110px 30px",gap:8,alignItems:"center"}}>
-                  <select value={r.priceId} onChange={e=>patchFresaRow(i,{priceId:e.target.value})} style={{...SS,fontSize:12}}>
+                  <select value={r.priceId} onChange={e=>patchFresaRow(i,{priceId:e.target.value,meters:"",formula:null})} style={{...SS,fontSize:12}}>
                     {fresaGroups.map(g=>(
                       <optgroup key={g} label={g}>
-                        {fresaPL.filter(x=>x.group===g).map(x=><option key={x.id} value={x.id}>{x.material} — {Number(x.rate).toFixed(2)} ₽/м</option>)}
+                        {fresaPL.filter(x=>x.group===g).map(x=><option key={x.id} value={x.id}>{x.material} — {Number(x.rate).toFixed(2)} ₽/{x.unit||"м"}</option>)}
                       </optgroup>
                     ))}
                   </select>
-                  <input type="number" value={isF?"":(r.meters||"")} disabled={isF} onChange={e=>patchFresaRow(i,{meters:e.target.value})} placeholder={isF?"формула":"пог.м"} style={{...IS,fontSize:12,opacity:isF?.6:1,background:isF?T.bg0:T.bg2}}/>
+                  <input type="number" value={isF?"":(r.meters||"")} disabled={isF} onChange={e=>patchFresaRow(i,{meters:e.target.value})} placeholder={isF?"формула":fresaPL.find(x=>x.id===r.priceId)?.unit||"м"} style={{...IS,fontSize:12,opacity:isF?.6:1,background:isF?T.bg0:T.bg2}}/>
                   <button title="Переключить ввод длины: вручную или по формуле" onClick={()=>patchFresaRow(i,{formula:isF?null:{}})} style={{height:38,borderRadius:8,border:`1px solid ${isF?T.accent:T.border}`,background:isF?T.accentDim:T.bg2,color:isF?T.accent:T.textSub,fontSize:12}}>{isF?"⊡ Формула":"Вручную"}</button>
                   <XBtn onClick={()=>setStFresas(p=>p.filter((_,idx)=>idx!==i))}/>
                 </div>
                 {isF&&<div style={{marginTop:6}}><FormulaEdit formula={r.formula} onChange={f=>patchFresaRow(i,{formula:f})}/></div>}
-                {isF&&<div style={{fontSize:10,color:T.textMuted,marginTop:3,paddingLeft:2}}>Длина реза = {formulaText(r.formula,binds)}</div>}
+                {isF&&<div style={{fontSize:10,color:T.textMuted,marginTop:3,paddingLeft:2}}>Объём = {formulaText(r.formula,binds)} (линейные параметры в м, площадь в м²)</div>}
               </div>
             );
           })}
@@ -1168,7 +1338,10 @@ export default function App(){
   const reportEntries=savedOrders.flatMap(o=>(o.positions||[]).flatMap(p=>(p.employeeWork||[]).map(e=>({...e,orderName:o.name,positionName:p.name||p.signTypeName})))).filter(e=>e.date>=reportFrom&&e.date<=reportTo);
   const [editingOrder,setEditingOrder]=useState(null);
   const [viewingOrder,setViewingOrder]=useState(null);
-  const [matForm,setMatForm]=useState({category:CATS[0],name:"",unit:"м²",price:"",supplier:""});
+  const [matForm,setMatForm]=useState({category:CATS[0],name:"",unit:"м²",price:"",supplier:"",color:""});
+  const [newMaterialCategory,setNewMaterialCategory]=useState("");
+  const [customMaterialCategories,setCustomMaterialCategories]=useState(()=>{try{const saved=JSON.parse(localStorage.getItem("signcalc.materialCategories"));return Array.isArray(saved)?saved.filter(x=>typeof x==="string"&&x.trim()).map(x=>x.trim()):[];}catch{return [];}});
+  useEffect(()=>{try{localStorage.setItem("signcalc.materialCategories",JSON.stringify(customMaterialCategories));}catch{}},[customMaterialCategories]);
   const [editMatId,setEditMatId]=useState(null);
   const [normForm,setNormForm]=useState(EMPTY_NORM);
   const [editNormId,setEditNormId]=useState(null);
@@ -1176,7 +1349,7 @@ export default function App(){
   const [plotterOpsList,setPlotterOpsList]=useState(DEFAULT_PLOTTER_OPS);
   const [fresaPL,setFresaPL]=useState(DEFAULT_FRESA);
   const [fresaEditId,setFresaEditId]=useState(null);
-  const [fresaForm,setFresaForm]=useState({group:"",material:"",rate:""});
+  const [fresaForm,setFresaForm]=useState({group:"",material:"",rate:"",unit:"м"});
   const [fresaFilter,setFresaFilter]=useState("");
   const [jaCfg,setJaCfg]=useState(DEFAULT_JA_CONFIG);
 
@@ -1185,9 +1358,10 @@ export default function App(){
   const [matQ,setMatQ]=useState("");
   const [matSort,setMatSort]=useState({key:"",dir:"asc"});
   const matCats=[...new Set(materials.map(m=>m.category))];
+  const materialCategoryOptions=[...new Set([...CATS,...customMaterialCategories,...matCats])];
   const matCounts=materials.reduce((a,m)=>{a[m.category]=(a[m.category]||0)+1;return a;},{__all:materials.length});
   const matRows=sortRows(
-    materials.filter(m=>(!matCat||m.category===matCat)&&(!matQ||(m.name+" "+m.supplier).toLowerCase().includes(matQ.toLowerCase()))),
+    materials.filter(m=>(!matCat||m.category===matCat)&&(!matQ||(m.name+" "+m.supplier+" "+(m.color||"")).toLowerCase().includes(matQ.toLowerCase()))),
     matSort.key,matSort.dir,
     (m,k)=>k==="price"?Number(m.price):(m[k]||"")
   );
@@ -1205,7 +1379,16 @@ export default function App(){
     (n,k)=>(k==="minutes"||k==="cost")?Number(n.minutes):(k==="bind"?bindLabel(n.bind,binds):(n[k]||""))
   );
 
-  const saveMat=()=>{if(!matForm.name||matForm.price==="")return;if(editMatId){setMaterials(p=>p.map(m=>m.id===editMatId?{...m,...matForm,price:Number(matForm.price)}:m));setEditMatId(null);}else setMaterials(p=>[...p,{...matForm,id:uid(),price:Number(matForm.price)}]);setMatForm({category:CATS[0],name:"",unit:"м²",price:"",supplier:""});};
+  const saveMat=()=>{
+    if(!matForm.name.trim()||matForm.price==="")return;
+    const raw=matForm.category==="__new_category__"?newMaterialCategory.trim():matForm.category;
+    if(!raw)return;
+    const category=materialCategoryOptions.find(c=>c.toLocaleLowerCase("ru-RU")===raw.toLocaleLowerCase("ru-RU"))||raw;
+    const data={...matForm,name:matForm.name.trim(),category,price:Number(matForm.price),color:category==="Плёнка"?(matForm.color||"").trim():""};
+    if(editMatId){setMaterials(p=>p.map(m=>m.id===editMatId?{...m,...data}:m));setEditMatId(null);}else setMaterials(p=>[...p,{...data,id:uid()}]);
+    if(!CATS.includes(category))setCustomMaterialCategories(p=>p.some(c=>c.toLocaleLowerCase("ru-RU")===category.toLocaleLowerCase("ru-RU"))?p:[...p,category]);
+    setNewMaterialCategory("");setMatForm({category:CATS[0],name:"",unit:"м²",price:"",supplier:"",color:""});
+  };
   const saveNorm=()=>{
     if(!normForm.operation||normForm.minutes==="")return;
     const data={...normForm,minutes:Number(normForm.minutes)};
@@ -1213,8 +1396,8 @@ export default function App(){
     else setNorms(p=>[...p,{...data,id:Date.now()+Math.floor(Math.random()*1000)}]);
     setNormForm(EMPTY_NORM);
   };
-  const saveFresa=()=>{if(!fresaForm.material||!fresaForm.rate)return;if(fresaEditId){setFresaPL(p=>p.map(r=>r.id===fresaEditId?{...r,...fresaForm,rate:Number(fresaForm.rate)}:r));setFresaEditId(null);}else setFresaPL(p=>[...p,{id:uid(),...fresaForm,rate:Number(fresaForm.rate)}]);setFresaForm({group:"",material:"",rate:""});};
-  const cancelFresa=()=>{setFresaEditId(null);setFresaForm({group:"",material:"",rate:""});};
+  const saveFresa=()=>{if(!fresaForm.material||!fresaForm.rate)return;if(fresaEditId){setFresaPL(p=>p.map(r=>r.id===fresaEditId?{...r,...fresaForm,rate:Number(fresaForm.rate)}:r));setFresaEditId(null);}else setFresaPL(p=>[...p,{id:uid(),...fresaForm,rate:Number(fresaForm.rate)}]);setFresaForm({group:"",material:"",rate:"",unit:"м"});};
+  const cancelFresa=()=>{setFresaEditId(null);setFresaForm({group:"",material:"",rate:"",unit:"м"});};
 
   const fresaGroups=[...new Set(fresaPL.map(r=>r.group))];
   const fresaFiltered=fresaFilter?fresaPL.filter(r=>r.material.toLowerCase().includes(fresaFilter.toLowerCase())||r.group.toLowerCase().includes(fresaFilter.toLowerCase())):fresaPL;
@@ -1231,7 +1414,7 @@ export default function App(){
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",height:54}}>
             <div style={{display:"flex",alignItems:"center",gap:10}}>
               <div style={{width:28,height:28,borderRadius:8,background:T.accent,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15}}>◈</div>
-              <span style={{fontSize:15,fontWeight:700,letterSpacing:-.3}}>SignCalc <small style={{fontSize:10,color:T.textSub}}>v1.18</small></span>
+              <span style={{fontSize:15,fontWeight:700,letterSpacing:-.3}}>SignCalc <small style={{fontSize:10,color:T.textSub}}>v1.23</small></span>
             </div>
             <div style={{display:"flex"}}>
               {TABS.map(t=>(
@@ -1340,7 +1523,7 @@ export default function App(){
                         {st.useJA&&<Tag col="amber">◉ жидкий акрил</Tag>}
                       </div>
                       <div style={{fontSize:11,color:T.textSub,marginBottom:12,lineHeight:1.6}}>
-                        {st.materials.map((r,i)=><div key={i}>• {materials.find(m=>m.id===Number(r.matId))?.name||"Материал удалён"}{r.note?` — ${r.note}`:""}</div>)}
+                        {st.materials.map((r,i)=><div key={i}>• {materialTitle(materials.find(m=>m.id===Number(r.matId)),r.color)}{r.note?` — ${r.note}`:""}</div>)}
                         {st.useJA&&<div>• Акрил, борт и задник — в модуле ЖА</div>}
                       </div>
                       <div style={{display:"flex",gap:6,borderTop:`1px solid ${T.border}`,paddingTop:10}}>
@@ -1382,22 +1565,24 @@ export default function App(){
               <Card>
                 <CH title={editMatId?"Редактировать":"Добавить материал"}/>
                 <div style={{padding:"16px 18px",display:"grid",gridTemplateColumns:"1fr 1fr 1fr 1fr",gap:14}}>
-                  <Sel label="Категория" value={matForm.category} onChange={v=>setMatForm(p=>({...p,category:v}))} options={CATS}/>
+                  <Sel label="Категория" value={matForm.category} onChange={v=>{setMatForm(p=>({...p,category:v}));setNewMaterialCategory("");}} options={[...materialCategoryOptions.map(c=>({value:c,label:c})),{value:"__new_category__",label:"+ Новая категория"}]}/>
+                  {matForm.category==="__new_category__"&&<Inp label="Название новой категории" value={newMaterialCategory} onChange={setNewMaterialCategory} placeholder="Введите категорию"/>}
                   <Inp label="Название" value={matForm.name} onChange={v=>setMatForm(p=>({...p,name:v}))} span={2}/>
                   <Inp label="Цена ₽" value={matForm.price} onChange={v=>setMatForm(p=>({...p,price:v}))} type="number" min="0"/>
                   <Inp label="Единица" value={matForm.unit} onChange={v=>setMatForm(p=>({...p,unit:v}))}/>
+                  {matForm.category==="Плёнка"&&<Inp label="Цвет / код плёнки" value={matForm.color||""} onChange={v=>setMatForm(p=>({...p,color:v}))} placeholder="Например: 031, красный"/>}
                   <Inp label="Поставщик" value={matForm.supplier} onChange={v=>setMatForm(p=>({...p,supplier:v}))} span={2}/>
                   <div style={{display:"flex",gap:8,alignItems:"end"}}>
                     <Btn onClick={saveMat} style={{flex:1}}>{editMatId?"Сохранить":"Добавить"}</Btn>
-                    {editMatId&&<Btn variant="sec" onClick={()=>{setEditMatId(null);setMatForm({category:CATS[0],name:"",unit:"м²",price:"",supplier:""});}}>✕</Btn>}
+                    {editMatId&&<Btn variant="sec" onClick={()=>{setEditMatId(null);setMatForm({category:CATS[0],name:"",unit:"м²",price:"",supplier:"",color:""});}}>✕</Btn>}
                   </div>
                 </div>
               </Card>
               <Card>
                 <CH title={`База материалов (${materials.length})`} action={
                   <div style={{display:"flex",gap:8}}>
-                    <ImpBtn label="Импорт CSV" onImport={text=>{const rows=parseCSV(text);const imp=rows.map(r=>({id:uid(),category:normalizeMaterialCategory(r[0]),name:r[1]?.trim()||"",unit:r[2]?.trim()||"шт",price:Number(r[3]?.replace(",","."))||0,supplier:r[4]?.trim()||""})).filter(r=>r.name);if(imp.length)setMaterials(p=>[...p,...imp]);}}/>
-                    <button className="sec" onClick={()=>{const rows=[["Категория","Название","Единица","Цена","Поставщик"],...materials.map(m=>[m.category,m.name,m.unit,m.price,m.supplier])];dlCSV(rows.map(r=>r.join(";")).join("\n"),"materials.csv");}} style={{height:32,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12}}>⬇ Экспорт</button>
+                    <ImpBtn label="Импорт CSV" onImport={text=>{const rows=parseCSV(text);const imp=rows.map(r=>({id:uid(),category:normalizeMaterialCategory(r[0]),name:r[1]?.trim()||"",unit:r[2]?.trim()||"шт",price:Number(r[3]?.replace(",","."))||0,supplier:r[4]?.trim()||"",color:r[5]?.trim()||""})).filter(r=>r.name);if(imp.length)setMaterials(p=>[...p,...imp]);}}/>
+                    <button className="sec" onClick={()=>{const rows=[["Категория","Название","Единица","Цена","Поставщик","Цвет"],...materials.map(m=>[m.category,m.name,m.unit,m.price,m.supplier,m.color||""])];dlCSV(rows.map(r=>r.join(";")).join("\n"),"materials.csv");}} style={{height:32,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12}}>⬇ Экспорт</button>
                     <button className="sec" onClick={()=>dlCSV(MAT_EX,"materials_template.csv")} style={{height:32,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12}}>📄 Шаблон</button>
                   </div>
                 }/>
@@ -1428,12 +1613,12 @@ export default function App(){
                     <tbody>{matRows.length===0&&(<tr><td colSpan={6} style={{...tdS,color:T.textMuted,textAlign:"center"}}>Ничего не найдено</td></tr>)}{matRows.map(m=>(
                       <tr key={m.id} className="hov" style={{borderBottom:`1px solid ${T.border}`}}>
                         <td style={tdS}><Tag col={CC[m.category]||"accent"}>{m.category}</Tag></td>
-                        <td style={tdS}>{m.name}</td>
+                        <td style={tdS}>{materialTitle(m)}</td>
                         <td style={{...tdS,fontWeight:600,color:T.accent}}>{m.price.toLocaleString("ru-RU")} ₽</td>
                         <td style={{...tdS,color:T.textMuted}}>{m.unit}</td>
                         <td style={{...tdS,color:T.textMuted}}>{m.supplier}</td>
                         <td style={{...tdS,whiteSpace:"nowrap"}}>
-                          <Btn variant="sec" onClick={()=>{setMatForm({category:m.category,name:m.name,unit:m.unit,price:m.price,supplier:m.supplier});setEditMatId(m.id);}} style={{height:26,padding:"0 8px",fontSize:11,marginRight:4}}>Ред.</Btn>
+                          <Btn variant="sec" onClick={()=>{setMatForm({category:m.category,name:m.name,unit:m.unit,price:m.price,supplier:m.supplier,color:m.color||""});setEditMatId(m.id);}} style={{height:26,padding:"0 8px",fontSize:11,marginRight:4}}>Ред.</Btn>
                           <button className="del" onClick={()=>setMaterials(p=>p.filter(x=>x.id!==m.id))} style={{height:26,width:26,borderRadius:5,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:13}}>×</button>
                         </td>
                       </tr>
@@ -1560,26 +1745,23 @@ export default function App(){
               </Card>
 
               <Card>
-                <CH title="⚙ Фреза ЧПУ — Прайс-лист" action={
+                <CH title="⚙ Фреза ЧПУ, лазер и гравировка — Прайс-лист" action={
                   <div style={{display:"flex",gap:8}}>
-                    <ImpBtn label="Импорт CSV" onImport={text=>{const rows=parseCSV(text);const imp=rows.map(r=>({id:uid(),group:r[0]?.trim()||"Прочее",material:r[1]?.trim()||"",rate:Number(r[2]?.replace(",","."))||0})).filter(r=>r.material&&r.rate);if(imp.length)setFresaPL(p=>[...p,...imp]);}}/>
-                    <button className="sec" onClick={()=>{const rows=[["Группа","Материал","Тариф руб/пог.м"],...fresaPL.map(r=>[r.group,r.material,r.rate])];dlCSV(rows.map(r=>r.join(";")).join("\n"),"fresa_pricelist.csv");}} style={{height:32,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12}}>⬇ Экспорт</button>
+                    <ImpBtn label="Импорт CSV" onImport={text=>{const rows=parseCSV(text);const imp=rows.map(r=>({id:uid(),group:r[0]?.trim()||"Прочее",material:r[1]?.trim()||"",rate:Number(r[2]?.replace(",","."))||0,unit:["м","см","см²"].includes(r[3]?.trim())?r[3].trim():"м"})).filter(r=>r.material&&r.rate);if(imp.length)setFresaPL(p=>[...p,...imp]);}}/>
+                    <button className="sec" onClick={()=>{const rows=[["Группа","Материал","Тариф руб/ед.","Единица"],...fresaPL.map(r=>[r.group,r.material,r.rate,r.unit||"м"])];dlCSV(rows.map(r=>r.join(";")).join("\n"),"fresa_pricelist.csv");}} style={{height:32,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12}}>⬇ Экспорт</button>
                     <button className="sec" onClick={()=>dlCSV(FR_EX,"fresa_template.csv")} style={{height:32,padding:"0 12px",borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12}}>📄 Шаблон</button>
                   </div>
                 }/>
                 <div style={{padding:"14px 18px"}}>
-                  <div style={{fontSize:12,color:T.textMuted,marginBottom:14,padding:"10px 14px",background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`}}>
-                    Тарифы <span style={{color:T.accent}}>poly-box.ru</span> · без НДС · мин. заказ 50 000 ₽. Используются в типах вывесок и позициях заказов.
-                  </div>
-                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 110px 38px",gap:10,marginBottom:14,padding:"12px 14px",background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`}}>
+                  <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 100px 90px 38px",gap:10,marginBottom:14,padding:"12px 14px",background:T.bg2,borderRadius:10,border:`1px solid ${T.border}`}}>
                     <Inp label="Группа" value={fresaForm.group} onChange={v=>setFresaForm(p=>({...p,group:v}))} placeholder="Акрил"/>
                     <Inp label="Материал" value={fresaForm.material} onChange={v=>setFresaForm(p=>({...p,material:v}))} placeholder="Акрил 3–4 мм"/>
-                    <Inp label="₽/пог.м" value={fresaForm.rate} onChange={v=>setFresaForm(p=>({...p,rate:v}))} type="number" min="0" step="0.01"/>
+                    <Sel label="Единица" value={fresaForm.unit} onChange={v=>setFresaForm(p=>({...p,unit:v}))} options={["м","см","см²"]}/><Inp label="₽/ед." value={fresaForm.rate} onChange={v=>setFresaForm(p=>({...p,rate:v}))} type="number" min="0" step="0.01"/>
                     <div style={{display:"flex",flexDirection:"column",gap:4}}>
                       <label style={{fontSize:11,color:"transparent"}}>.</label>
                       <button className="pri" onClick={saveFresa} style={{height:38,borderRadius:8,border:"none",background:T.accent,color:"#fff",fontSize:18,fontWeight:700}}>{fresaEditId?"✓":"+"}</button>
                     </div>
-                    {fresaEditId&&<button className="sec" onClick={cancelFresa} style={{gridColumn:"span 4",height:30,borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:12}}>Отмена</button>}
+                    {fresaEditId&&<button className="sec" onClick={cancelFresa} style={{gridColumn:"span 4",height:26,borderRadius:8,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:12}}>Отмена</button>}
                   </div>
                   <div style={{position:"relative",marginBottom:12}}>
                     <span style={{position:"absolute",left:12,top:"50%",transform:"translateY(-50%)",color:T.textMuted,fontSize:14,pointerEvents:"none"}}>🔍</span>
@@ -1587,13 +1769,13 @@ export default function App(){
                     {fresaFilter&&<button onClick={()=>setFresaFilter("")} style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",border:"none",background:"none",color:T.textMuted,fontSize:18,cursor:"pointer"}}>×</button>}
                   </div>
                   <div style={{borderRadius:10,border:`1px solid ${T.border}`,overflow:"hidden",maxHeight:460,overflowY:"auto"}}>
-                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:13}}>
+                    <table style={{width:"100%",borderCollapse:"collapse",fontSize:12,minWidth:580}}>
                       <thead style={{position:"sticky",top:0,zIndex:2}}>
                         <tr style={{background:T.bg3}}>
                           <th style={{...thS,width:120}}>Группа</th>
                           <th style={thS}>Материал</th>
-                          <th style={{...thS,width:150,textAlign:"right"}}>Тариф, ₽/пог.м</th>
-                          <th style={{...thS,width:70}}></th>
+                          <th style={{...thS,width:150,textAlign:"right"}}>Тариф, ₽/ед.</th>
+                          <th style={{...thS,width:80}}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1601,24 +1783,24 @@ export default function App(){
                           const editing=fresaEditId===r.id;
                           return(
                             <tr key={r.id} className="hov" style={{borderBottom:`1px solid ${T.border}`,background:editing?T.accentDim:undefined}}>
-                              {!fresaFilter&&r._first&&<td rowSpan={r._span} style={{...tdS,verticalAlign:"middle",borderRight:`1px solid ${T.border}`,background:T.bg2}}><Tag col="accent">{r.group}</Tag></td>}
-                              {fresaFilter&&<td style={{...tdS,borderRight:`1px solid ${T.border}`,background:T.bg2}}><Tag col="accent">{r.group}</Tag></td>}
-                              <td style={tdS}>{editing?<input autoFocus value={fresaForm.material} onChange={e=>setFresaForm(p=>({...p,material:e.target.value}))} style={{...IS,height:30,fontSize:12}}/>:r.material}</td>
-                              <td style={{...tdS,textAlign:"right"}}>
+                              {!fresaFilter&&r._first&&<td rowSpan={r._span} style={{...tdS,padding:"4px 8px",verticalAlign:"middle",borderRight:`1px solid ${T.border}`,background:T.bg2}}><Tag col="accent">{r.group}</Tag></td>}
+                              {fresaFilter&&<td style={{...tdS,padding:"4px 8px",borderRight:`1px solid ${T.border}`,background:T.bg2}}><Tag col="accent">{r.group}</Tag></td>}
+                              <td style={{...tdS,padding:"4px 8px"}}>{editing?<input autoFocus value={fresaForm.material} onChange={e=>setFresaForm(p=>({...p,material:e.target.value}))} style={{...IS,height:26,fontSize:12}}/>:r.material}</td>
+                              <td style={{...tdS,padding:"4px 8px",textAlign:"right"}}>
                                 {editing?(
                                   <div style={{display:"flex",gap:6,justifyContent:"flex-end",alignItems:"center"}}>
-                                    <input type="number" step="0.01" value={fresaForm.rate} onChange={e=>setFresaForm(p=>({...p,rate:e.target.value}))} style={{...IS,height:30,width:88,textAlign:"right",fontWeight:700,color:T.amber}}/>
-                                    <button onClick={saveFresa} style={{height:30,padding:"0 8px",borderRadius:6,border:"none",background:T.green,color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>✓</button>
-                                    <button onClick={cancelFresa} style={{height:30,padding:"0 6px",borderRadius:6,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:13}}>✕</button>
+                                    <input type="number" step="0.01" value={fresaForm.rate} onChange={e=>setFresaForm(p=>({...p,rate:e.target.value}))} style={{...IS,height:26,width:88,textAlign:"right",fontWeight:700,color:T.amber}}/>
+                                    <button onClick={saveFresa} style={{height:26,padding:"0 8px",borderRadius:6,border:"none",background:T.green,color:"#fff",fontWeight:700,fontSize:13,flexShrink:0}}>✓</button>
+                                    <button onClick={cancelFresa} style={{height:26,padding:"0 6px",borderRadius:6,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:13}}>✕</button>
                                   </div>
-                                ):<b style={{color:T.amber}}>{Number(r.rate).toFixed(2)} ₽</b>}
+                                ):<b style={{color:T.amber}}>{Number(r.rate).toFixed(2)} ₽/{r.unit||"м"}</b>}
                               </td>
-                              <td style={{...tdS,textAlign:"center"}}>
+                              <td style={{...tdS,padding:"4px 8px",textAlign:"center"}}>
                                 {!editing&&(
-                                  <>
-                                    <button className="sec" onClick={()=>{setFresaEditId(r.id);setFresaForm({group:r.group,material:r.material,rate:r.rate});}} style={{height:24,padding:"0 7px",borderRadius:5,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12,marginRight:4}}>✎</button>
-                                    <button className="del" onClick={()=>setFresaPL(p=>p.filter(x=>x.id!==r.id))} style={{height:24,width:24,borderRadius:5,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:13,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>×</button>
-                                  </>
+                                  <div style={{display:"inline-flex",gap:4,alignItems:"center",justifyContent:"center",flexWrap:"nowrap"}}>
+                                    <button className="sec" onClick={()=>{setFresaEditId(r.id);setFresaForm({group:r.group,material:r.material,rate:r.rate,unit:r.unit||"м"});}} style={{height:22,padding:"0 7px",borderRadius:5,border:`1px solid ${T.border}`,background:"none",color:T.textSub,fontSize:12,flexShrink:0}}>✎</button>
+                                    <button className="del" onClick={()=>setFresaPL(p=>p.filter(x=>x.id!==r.id))} style={{height:22,width:22,borderRadius:5,border:`1px solid ${T.border}`,background:"none",color:T.textMuted,fontSize:13,flexShrink:0,display:"inline-flex",alignItems:"center",justifyContent:"center"}}>×</button>
+                                  </div>
                                 )}
                               </td>
                             </tr>
@@ -1629,7 +1811,7 @@ export default function App(){
                   </div>
                   <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:10,fontSize:12,color:T.textMuted}}>
                     <span>Позиций: <b style={{color:T.text}}>{fresaPL.length}</b>{fresaFilter&&<span> · найдено: <b style={{color:T.accent}}>{fresaFiltered.length}</b></span>}</span>
-                    <button className="sec" onClick={()=>{if(window.confirm("Сбросить к значениям по умолчанию?"))setFresaPL(DEFAULT_FRESA);}} style={{height:24,padding:"0 10px",fontSize:11,borderRadius:6,border:`1px solid ${T.border}`,background:"none",color:T.textMuted}}>↺ Сбросить</button>
+                    <button className="sec" onClick={()=>{if(window.confirm("Сбросить к значениям по умолчанию?"))setFresaPL(DEFAULT_FRESA);}} style={{height:22,padding:"0 10px",fontSize:11,borderRadius:6,border:`1px solid ${T.border}`,background:"none",color:T.textMuted}}>↺ Сбросить</button>
                   </div>
                 </div>
               </Card>
